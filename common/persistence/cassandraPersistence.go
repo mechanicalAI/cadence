@@ -552,7 +552,7 @@ const (
 		`and run_id = ? ` +
 		`and visibility_ts = ? ` +
 		`and task_id > ? ` +
-		`and task_id <= ? LIMIT ?`
+		`and task_id <= ?`
 
 	templateGetReplicationTasksQuery = `SELECT replication ` +
 		`FROM executions ` +
@@ -563,7 +563,7 @@ const (
 		`and run_id = ? ` +
 		`and visibility_ts = ? ` +
 		`and task_id > ? ` +
-		`and task_id <= ? LIMIT ?`
+		`and task_id <= ?`
 
 	templateCompleteTransferTaskQuery = `DELETE FROM executions ` +
 		`WHERE shard_id = ? ` +
@@ -582,7 +582,7 @@ const (
 		`and workflow_id = ?` +
 		`and run_id = ?` +
 		`and visibility_ts >= ? ` +
-		`and visibility_ts < ? LIMIT ?`
+		`and visibility_ts < ?`
 
 	templateCompleteTimerTaskQuery = `DELETE FROM executions ` +
 		`WHERE shard_id = ? ` +
@@ -1552,7 +1552,7 @@ func (d *cassandraPersistence) GetTransferTasks(request *GetTransferTasksRequest
 		defaultVisibilityTimestamp,
 		request.ReadLevel,
 		request.MaxReadLevel,
-		request.BatchSize)
+	).PageSize(request.BatchSize).PageState(request.NextPageToken)
 
 	iter := query.Iter()
 	if iter == nil {
@@ -1570,6 +1570,9 @@ func (d *cassandraPersistence) GetTransferTasks(request *GetTransferTasksRequest
 
 		response.Tasks = append(response.Tasks, t)
 	}
+	nextPageToken := iter.PageState()
+	response.NextPageToken = make([]byte, len(nextPageToken))
+	copy(response.NextPageToken, nextPageToken)
 
 	if err := iter.Close(); err != nil {
 		return nil, &workflow.InternalServiceError{
@@ -1593,7 +1596,7 @@ func (d *cassandraPersistence) GetReplicationTasks(request *GetReplicationTasksR
 		defaultVisibilityTimestamp,
 		request.ReadLevel,
 		request.MaxReadLevel,
-		request.BatchSize)
+	).PageSize(request.BatchSize).PageState(request.NextPageToken)
 
 	iter := query.Iter()
 	if iter == nil {
@@ -1611,6 +1614,9 @@ func (d *cassandraPersistence) GetReplicationTasks(request *GetReplicationTasksR
 
 		response.Tasks = append(response.Tasks, t)
 	}
+	nextPageToken := iter.PageState()
+	response.NextPageToken = make([]byte, len(nextPageToken))
+	copy(response.NextPageToken, nextPageToken)
 
 	if err := iter.Close(); err != nil {
 		return nil, &workflow.InternalServiceError{
@@ -2019,7 +2025,7 @@ func (d *cassandraPersistence) GetTimerIndexTasks(request *GetTimerIndexTasksReq
 		rowTypeTimerRunID,
 		minTimestamp,
 		maxTimestamp,
-		request.BatchSize)
+	).PageSize(request.BatchSize).PageState(request.NextPageToken)
 
 	iter := query.Iter()
 	if iter == nil {
@@ -2037,6 +2043,9 @@ func (d *cassandraPersistence) GetTimerIndexTasks(request *GetTimerIndexTasksReq
 
 		response.Timers = append(response.Timers, t)
 	}
+	nextPageToken := iter.PageState()
+	response.NextPageToken = make([]byte, len(nextPageToken))
+	copy(response.NextPageToken, nextPageToken)
 
 	if err := iter.Close(); err != nil {
 		if isThrottlingError(err) {
